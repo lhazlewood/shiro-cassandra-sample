@@ -135,7 +135,7 @@ public class CassandraSessionDAO extends AbstractSessionDAO implements Initializ
     }
 
     protected void createKeyspace(com.datastax.driver.core.Session systemSession) {
-        //In production, class would likely be a NetworkTopologyStrategy with a replication factor of at least 3
+        //Use NetworkTopologyStrategy in production and probably replication factor of 3
         String query = "create keyspace " + this.keyspaceName + " with replication = {'class': 'SimpleStrategy', 'replication_factor': 1};";
         systemSession.execute(query);
     }
@@ -153,7 +153,8 @@ public class CassandraSessionDAO extends AbstractSessionDAO implements Initializ
                         "    serialized_value blob " +
                         ") " +
                         "WITH " +
-                        "    caching = 'all';";
+                        "    gc_grace_seconds = 86400 AND " +
+                        "    compaction = {'class':'LeveledCompactionStrategy'};";
         cassandraSession.execute(query);
     }
 
