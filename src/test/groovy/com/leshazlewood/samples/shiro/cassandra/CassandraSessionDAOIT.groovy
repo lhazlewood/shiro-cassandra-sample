@@ -90,8 +90,8 @@ class CassandraSessionDAOIT {
         svc.invokeAll(tasks);
         long stop = System.currentTimeMillis();
 
-        Thread.sleep(200);
-
         println "Execution time: ${stop - start} millis"
+
+        Thread.sleep(200)
     }
 }

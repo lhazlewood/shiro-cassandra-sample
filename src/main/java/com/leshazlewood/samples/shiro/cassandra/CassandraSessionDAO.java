@@ -53,6 +53,10 @@ public class CassandraSessionDAO extends AbstractSessionDAO implements Initializ
 
     private com.datastax.driver.core.Session cassandraSession; //acquired during init();
 
+    private PreparedStatement deletePreparedStatement;
+    private PreparedStatement savePreparedStatement;
+    private PreparedStatement readPreparedStatement;
+
     public CassandraSessionDAO() {
         setSessionIdGenerator(new TimeUuidSessionIdGenerator());
         this.serializer = new DefaultSerializer<SimpleSession>();
@@ -105,18 +109,22 @@ public class CassandraSessionDAO extends AbstractSessionDAO implements Initializ
                 }
             }
         } finally {
-            systemSession.shutdown();
+            systemSession.close();
         }
 
         cassandraSession = cluster.connect(keyspaceName);
         if (create) {
             createTable();
         }
+
+        prepareReadStatement();
+        prepareSaveStatement();
+        prepareDeleteStatement();
     }
 
     public void destroy() throws Exception {
         if (cassandraSession != null) {
-            cassandraSession.shutdown();
+            cassandraSession.close();
         }
     }
 
@@ -196,9 +204,7 @@ public class CassandraSessionDAO extends AbstractSessionDAO implements Initializ
 
         UUID id = toUuid(sessionId);
 
-        String query = "SELECT * from " + tableName + " where id = ?";
-
-        PreparedStatement ps = cassandraSession.prepare(query);
+        PreparedStatement ps = prepareReadStatement();
         BoundStatement bs = new BoundStatement(ps);
         bs.bind(id);
 
@@ -219,25 +225,21 @@ public class CassandraSessionDAO extends AbstractSessionDAO implements Initializ
         return null;
     }
 
+    private PreparedStatement prepareReadStatement() {
+        if (this.readPreparedStatement == null) {
+            String query = "SELECT * from " + tableName + " where id = ?";
+            this.readPreparedStatement = cassandraSession.prepare(query);
+        }
+        return this.readPreparedStatement;
+    }
+
     //In CQL, insert and update are effectively the same, so we can use a single query for both:
     protected void save(SimpleSession ss) {
 
         //Cassandra TTL values are in seconds, so we need to convert from Shiro's millis:
-        long timeoutInSeconds = ss.getTimeout() / 1000;
+        int timeoutInSeconds = (int)(ss.getTimeout() / 1000);
 
-        String query = "UPDATE " + tableName + " USING TTL " + timeoutInSeconds + " " +
-                "SET " +
-                "start_ts = ?, " +
-                "stop_ts = ?, " +
-                "last_access_ts = ?, " +
-                "timeout = ?, " +
-                "expired = ?, " +
-                "host = ?, " +
-                "serialized_value = ? " +
-                "WHERE " +
-                "id = ?";
-
-        PreparedStatement ps = cassandraSession.prepare(query);
+        PreparedStatement ps = prepareSaveStatement();
         BoundStatement bs = new BoundStatement(ps);
 
         byte[] serialized = serializer.serialize(ss);
@@ -245,6 +247,7 @@ public class CassandraSessionDAO extends AbstractSessionDAO implements Initializ
         ByteBuffer bytes = ByteBuffer.wrap(serialized);
 
         bs.bind(
+                timeoutInSeconds,
                 ss.getStartTimestamp(),
                 ss.getStopTimestamp() != null ? ss.getStartTimestamp() : null,
                 ss.getLastAccessTime(),
@@ -256,7 +259,24 @@ public class CassandraSessionDAO extends AbstractSessionDAO implements Initializ
         );
 
         cassandraSession.execute(bs);
+    }
 
+    private PreparedStatement prepareSaveStatement() {
+        if (this.savePreparedStatement == null) {
+            String query = "UPDATE " + tableName + " USING TTL ? " +
+                    "SET " +
+                    "start_ts = ?, " +
+                    "stop_ts = ?, " +
+                    "last_access_ts = ?, " +
+                    "timeout = ?, " +
+                    "expired = ?, " +
+                    "host = ?, " +
+                    "serialized_value = ? " +
+                    "WHERE " +
+                    "id = ?";
+            this.savePreparedStatement = cassandraSession.prepare(query);
+        }
+        return this.savePreparedStatement;
     }
 
     public void update(Session session) throws UnknownSessionException {
@@ -265,11 +285,18 @@ public class CassandraSessionDAO extends AbstractSessionDAO implements Initializ
     }
 
     public void delete(Session session) {
-        String query = "DELETE from " + tableName + " where id = ?";
-        PreparedStatement ps = cassandraSession.prepare(query);
+        PreparedStatement ps = prepareDeleteStatement();
         BoundStatement bs = new BoundStatement(ps);
         bs.bind(session.getId());
         cassandraSession.execute(bs);
+    }
+
+    private PreparedStatement prepareDeleteStatement() {
+        if (this.deletePreparedStatement == null) {
+            String query = "DELETE from " + tableName + " where id = ?";
+            this.deletePreparedStatement = cassandraSession.prepare(query);
+        }
+        return this.deletePreparedStatement;
     }
 
     public Collection<Session> getActiveSessions() {

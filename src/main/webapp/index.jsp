@@ -1,3 +1,4 @@
+<%@ page session="false" %>
 <%--
   ~ Copyright (c) 2013 Les Hazlewood
   ~

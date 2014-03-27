@@ -133,7 +133,7 @@ public class ClusterFactory implements Factory<Cluster>, Initializable, Destroya
     public void destroy() throws Exception {
         try {
             if (cluster != null) {
-                cluster.shutdown();
+                cluster.close();
             }
         } finally {
             cluster = null;
