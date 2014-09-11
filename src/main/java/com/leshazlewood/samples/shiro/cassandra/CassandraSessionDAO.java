@@ -185,8 +185,28 @@ public class CassandraSessionDAO extends AbstractSessionDAO implements Initializ
         if (sessionId instanceof UUID) {
             id = (UUID)sessionId;
         } else if (sessionId instanceof String) {
+
+            String sid = (String)sessionId;
+
+            if (sid.indexOf('-') < 0) {
+
+                char[] sidChars = sid.toCharArray();
+
+                StringBuilder sb = new StringBuilder();
+
+                for(int i = 0; i < sidChars.length; i++) {
+                    char c = sidChars[i];
+                    sb.append(c);
+                    if (i == 7 || i == 11 || i == 15 || i == 19) {
+                        sb.append('-');
+                    }
+                }
+
+                sid = sb.toString();
+            }
+
             try {
-                id = UUID.fromString((String)sessionId);
+                id = UUID.fromString(sid);
             } catch (Exception e) {
                 LOG.debug("Unable to parse sessionId string (not a UUID?): {}", sessionId);
                 return null;

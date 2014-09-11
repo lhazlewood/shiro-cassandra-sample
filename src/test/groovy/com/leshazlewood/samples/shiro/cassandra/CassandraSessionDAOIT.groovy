@@ -45,7 +45,7 @@ class CassandraSessionDAOIT {
     @Test
     void dropTheHammer() {
 
-        int count = 100000;
+        int count = 10000;
 
         List<Callable> tasks = new ArrayList<Callable>(count);
 

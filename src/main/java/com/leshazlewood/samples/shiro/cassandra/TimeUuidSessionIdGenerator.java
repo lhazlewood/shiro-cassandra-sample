@@ -15,11 +15,11 @@
  */
 package com.leshazlewood.samples.shiro.cassandra;
 
+import com.datastax.driver.core.utils.UUIDs;
 import org.apache.shiro.session.Session;
 import org.apache.shiro.session.mgt.eis.SessionIdGenerator;
 
 import java.io.Serializable;
-import java.util.UUID;
 
 /**
  * @since 2013-06-09
@@ -27,6 +27,6 @@ import java.util.UUID;
 public class TimeUuidSessionIdGenerator implements SessionIdGenerator {
 
     public Serializable generateId(Session session) {
-        return UUID.fromString(new com.eaio.uuid.UUID().toString());
+        return UUIDs.timeBased();
     }
 }
